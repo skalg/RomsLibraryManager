@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Switch Games</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+    .game-icon {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+    </style>
+</head>
+<body>
+    <div class="container-fluid"> 
+        <h1 class="text-center my-4">Switch Games</h1>
+        <div class="text-center">
+            <form method="GET" action="{{ url_for('home') }}" onsubmit="event.preventDefault(); fetchGames();">
+                <input type="text" name="search_query" placeholder="Game ID or Name...">
+                <button type="submit">Search</button>
+            </form>       
+            <span>Total Games: {{ total_games }}</span><br>
+            <span>Total Updates: {{ total_updates }}</span><br>
+            <span>Missing Updates: {{ missing_updates_count }}</span><br>
+            <span>Total DLCs: {{ total_dlcs }}</span><br>
+            <input type="checkbox" id="missingUpdates" name="missingUpdates">
+            <label for="missingUpdates">Show missing updates</label>
+        </div>
+        <form action="{{ url_for('refresh_data') }}" method="post">
+            <button type="submit">Refresh Games</button>
+        </form>
+        <button onclick="confirmOrganize()">Organize All Games</button>
+        <form method="GET" action="{{ url_for('home') }}">
+            <select name="sort" onchange="initializeGames()">
+                <option value="releaseDate" {% if request.args.get('sort', 'name') == 'releaseDate' %}selected{% endif %}>Release Date</option>
+                <option value="rank" {% if request.args.get('sort', 'name') == 'rank' %}selected{% endif %}>Rank</option>
+                <option value="name" {% if request.args.get('sort', 'name') == 'name' %}selected{% endif %}>Name</option>
+            </select>
+            <select name="category" onchange="initializeGames()">
+                <option value="All" {{ 'selected' if selected_category == "All" or not selected_category }}>All</option>
+                {% for category in categories %}
+                    <option value="{{ category.name }}" {{ 'selected' if selected_category == category.name }}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </form>        
+        <div class="row" id="games-container">
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function confirmOrganize() {
+          if (confirm("Are you sure you want to organize all games?")) {
+            window.location.href = "{{ url_for('organize_data') }}";
+          }
+        }
+
+        var page = 1;  // The current page number
+        var perPage = 50;  // The number of games to fetch at once
+        var selectedCategory = document.querySelector('select[name="category"]').value;
+
+        document.querySelector('select[name="category"]').addEventListener('change', function() {
+            selectedCategory = this.value;
+            document.getElementById('games-container').innerHTML = '';  // Clear the games container and fetch games again
+            page = 1;  // Reset the page number
+            fetchGames();
+        });
+
+        function initializeGames() {
+            var gamesContainer = document.getElementById('games-container');
+            gamesContainer.innerHTML = '';  // Clear games container
+            
+            page = 1;  // Reset the page number
+            
+            fetchGames();  // Fetch the games using the current page number
+        }
+
+        function loadMoreGames() {
+            page++;  // Increment the page number
+            fetchGames(false);  // Fetch the games without clearing the container
+        }
+
+        function fetchGames(clearContainer = true) {
+            var sort = document.querySelector("select[name='sort']").value;
+            var category = document.querySelector("select[name='category']").value;
+            var searchQuery = document.querySelector("input[name='search_query']").value;
+            var missingUpdates = document.getElementById('missingUpdates').checked;
+
+            fetch(`/api/games?page=${page}&per_page=${perPage}&sort=${sort}&category=${category}&search_query=${searchQuery}&missingUpdates=${missingUpdates}`)
+                .then(response => response.json())
+                .then(data => {
+                    var gamesContainer = document.getElementById('games-container');
+                    if (clearContainer) {
+                        gamesContainer.innerHTML = '';  // Clear previous games
+                    }
+                    data.games.forEach(game => {
+                        var gameDiv = document.createElement('div');
+                        gameDiv.className = 'col-md-2 col-sm-6';
+                        gameDiv.innerHTML = `
+                            <div class="card mb-4">
+                                <a href="/game/${game.id}">
+                                    <img src="${game.localIconUrl}" class="card-img-top game-icon" alt="${game.name}">
+                                </a>
+                                <div class="card-body">
+                                    <h5 class="card-title">${game.name}</h5> <small>(${game.rank})</small><br><small>(${game.releaseDate})</small><br>
+                                    <small>Version: ${game.latest_update_version}</small>
+                                    ${game.latest_update_version < game.latest_version_from_json ? '<h6>Update Available : ' + game.latest_version_from_json + '</h6>' : ''}
+                                </div>
+                            </div>
+                        `;
+                        gamesContainer.appendChild(gameDiv);
+                    });
+                });
+        }
+
+        // Event listener for the checkbox
+        var missingUpdatesCheckbox = document.getElementById('missingUpdates');
+        missingUpdatesCheckbox.addEventListener('change', function() {
+            document.getElementById('games-container').innerHTML = '';
+            page = 1;
+            fetchGames();
+        });
+
+        initializeGames();  // Fetch the initial set of games
+
+        // Fetch more games when the user has scrolled to the bottom of the page
+        window.onscroll = function(ev) {
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) {
+                loadMoreGames();
+            }
+        };
+
+    </script>        
+</body>
+</html>

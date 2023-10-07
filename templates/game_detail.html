@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Switch Games</title>
+        <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+        .game-icon {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        </style>
+    </head>
+<body>
+
+<div class="container">
+    <a href="{{ url_for('home') }}">Home</a>
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <img src="{{ url_for('static', filename=game.localIconUrl[7:]) }}" alt="{{ game.name }}" class="img-fluid">
+        </div>
+        <div class="col-md-6">
+            <h2>{{ game.name }}</h2>
+            <p><strong>Release Date:</strong> {{ game.releaseDate }}</p>
+            <p><strong>Developer:</strong> {{ game.developer }}</p>
+            <p>{{ game.description }}</p>
+            <p><strong>Language:</strong> {{ game.language }}</p>
+            <p><strong>Languages:</strong> {{ ', '.join(game.languages | map(attribute='name')) }}</p>
+            <p><strong>Category:</strong> {{ game.category }}</p>
+            <p><strong>Number of Players:</strong> {{ game.numberOfPlayers }}</p>
+            <p><strong>Publisher:</strong> {{ game.publisher }}</p>
+            <p><strong>Rank:</strong> {{ game.rank }}</p>
+            <p><strong>Rating:</strong> {{ game.rating }}</p>
+            <p><strong>Rating Content:</strong> {{ game.ratingContent }}</p>
+            <p><strong>Release Date:</strong> {{ game.releaseDate }}</p>
+            <p><strong>Rights ID:</strong> {{ game.rightsId }}</p>
+            <p><strong>Size:</strong> {{ game.size }}</p>
+            <p><strong>Version:</strong> {{ game.version }}</p>
+            <!-- Display game details -->
+            <h2>Game Details</h2>
+            <p>Filename: {{ game.filename }}</p>
+            <p>Location: {{ game.location }}</p>
+
+            <!-- Provide a download link -->
+            <a href="{{ url_for('static', filename=game.location + '/' + game.filename) }}">Download Game</a>
+
+            <!-- Display QR Code for downloading -->
+            <div id="qrcode-game"></div>
+            <button onclick="deleteGame('{{ game.id }}')">Delete Game</button>
+
+            <!-- Display update details if they exist -->
+            {% if game.updates %}
+                <h2>Update Details</h2>
+                {% for update in game.updates %}
+                    <p>Filename: {{ update.filename }}</p>
+                    <p>Location: {{ update.location }}</p>
+                    <p>Version: {{ update.version }}</p>
+
+                    <!-- Provide a download link for the update -->
+                    <a href="{{ url_for('static', filename=update.location + '/' + update.filename) }}">Download Update</a>
+
+                    <!-- Display QR Code for downloading the update -->
+                    <div id="qrcode-update-{{ loop.index }}"></div>
+                    <button onclick="deleteUpdate('{{ update.id }}')">Delete Update</button>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Display DLC details if they exist -->
+            {% if game.dlcs %}
+                <h2>DLC Details</h2>
+                {% for dlc in game.dlcs %}
+                    <p>Filename: {{ dlc.filename }}</p>
+                    <p>Location: {{ dlc.location }}</p>
+                    <p>Version: {{ dlc.version }}</p>
+
+                    <!-- Provide a download link for the DLC -->
+                    <a href="{{ url_for('static', filename=dlc.location + '/' + dlc.filename) }}">Download DLC</a>
+
+                    <!-- Display QR Code for downloading the DLC -->
+                    <div id="qrcode-dlc-{{ loop.index }}"></div>
+                    <button onclick="deleteDLC('{{ dlc.id }}')">Delete DLC</button>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+<!-- Include jQuery and qrcode.js -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+
+<script>
+       function deleteGame(gameId) {
+        if (confirm("Are you sure you want to delete this game?")) {
+            window.location.href = "{{ url_for('delete_game') }}?gameId=" + gameId;
+        }
+    }
+
+    function deleteUpdate(updateId) {
+        if (confirm("Are you sure you want to delete this update?")) {
+            window.location.href = "{{ url_for('delete_update') }}?updateId=" + updateId;
+        }
+    }
+
+    function deleteDLC(dlcId) {
+        if (confirm("Are you sure you want to delete this DLC?")) {
+            window.location.href = "{{ url_for('delete_dlc') }}?dlcId=" + dlcId;
+        }
+    }
+    // Array to store download URLs and their corresponding element IDs
+    var qrCodes = [
+        {
+            elementId: 'qrcode-game',
+            downloadUrl: '{{ url_for('static', filename=game.location + '/' + game.filename) }}'
+        }
+    ];
+    
+    {% for update in game.updates %}
+        qrCodes.push({
+            elementId: 'qrcode-update-{{ loop.index }}',
+            downloadUrl: '{{ url_for('static', filename=update.location + '/' + update.filename) }}'
+        });
+    {% endfor %}
+
+    {% for dlc in game.dlcs %}
+        qrCodes.push({
+            elementId: 'qrcode-dlc-{{ loop.index }}',
+            downloadUrl: '{{ url_for('static', filename=dlc.location + '/' + dlc.filename) }}'
+        });
+    {% endfor %}
+
+    // When the page is ready, generate the QR codes.
+    $(document).ready(function() {
+        for (var i = 0; i < qrCodes.length; i++) {
+            new QRCode(document.getElementById(qrCodes[i].elementId), qrCodes[i].downloadUrl);
+        }
+    });
+</script>
+</body>
+</html>
