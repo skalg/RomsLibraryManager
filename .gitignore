@@ -151,3 +151,4 @@ instance/games.db
 static/images/
 env/
 drive.zip
+titles.json
