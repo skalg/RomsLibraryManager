@@ -38,4 +38,4 @@ python main.py
 
 ## License 📄
 
-This project is safeguarded under the MIT License.
+This project is safeguarded under the MIT License. Refer to [LICENSE.md](LICENSE.md) for a detailed overview.
