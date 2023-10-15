@@ -25,7 +25,7 @@ def game_detail(game_id):
 @app.route('/refresh', methods=['POST'])
 def refresh_data():
     result = refresh_data_db()
-    return redirect(url_for('home'))
+    return jsonify(result)
 
 @app.route('/organize', methods=['GET', 'POST'])
 def organize_data():

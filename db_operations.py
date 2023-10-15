@@ -285,6 +285,8 @@ def handle_game_name_found(data, game_name, filename, file, root):
         print(f"Game Already Exist in db {game_name}")
 
 def refresh_data_db():
+    unprocessed_files = []
+
     if not os.path.isfile('titles.json'):
         r = requests.get(config.TINFOIL_URL)  # Download json file
         with open('titles.json', 'wb') as f:
@@ -321,13 +323,19 @@ def refresh_data_db():
                     game_name = find_name_in_json(filename, data)  # Try to find the game name in the JSON data using the function
                     if game_name:
                         handle_game_name_found(data, game_name, filename, file, root)
-                        
+                    unprocessed_files.append(file)
+
     # Deleting non-existent entries
     delete_non_existent_files(Game, 'filename')
     delete_non_existent_files(Update, 'filename')
     delete_non_existent_files(DLC, 'filename')
 
     db.session.commit()
+
+    return {
+        'refreshed': [game.filename for game in Game.query.all()],
+        'unprocessed': unprocessed_files
+    }
 
 def organize(games=None):
     if games is None:
