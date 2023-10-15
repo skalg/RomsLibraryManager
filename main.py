@@ -3,7 +3,7 @@ from sqlalchemy import text, or_
 from os.path import join
 import config
 from models import db, Platform, Category, Publisher, Language, GameCategory, GameLanguage, Update, DLC, Game
-from db_operations import refresh_data_db, organize, delete_game_db, delete_update_db, delete_dlc_db
+from db_operations import refresh_data_db, organize, delete_game_db, delete_update_db, delete_dlc_db, preview_organize
 import os
 import requests
 import json
@@ -31,6 +31,11 @@ def refresh_data():
 def organize_data():
     result = organize()
     return redirect(url_for('home'))
+
+@app.route('/preview-organize', methods=['GET'])
+def preview_organize_route():
+    changes = preview_organize()
+    return jsonify(changes)
 
 @app.route('/api/games')
 def api_games():

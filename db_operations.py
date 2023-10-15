@@ -64,6 +64,23 @@ def process_items(items, parent_dir, item_type, parent=None):
             db.session.delete(item) 
             db.session.commit()
 
+def preview_process_items(items, parent_dir, item_type, parent=None):
+    changes = []
+
+    for item in items:
+        full_file_path = os.path.join(item.location, item.filename)
+        dest_path = os.path.join(parent_dir, item.filename)
+        
+        if os.path.exists(full_file_path):
+            if full_file_path != dest_path:
+                changes.append(f"MOVE {full_file_path} to {dest_path}")
+            else:
+                changes.append(f"SET LOCATION {item.filename} to {parent_dir}")
+        else:
+            changes.append(f"DELETE {item_type} : {item.filename} from database")
+
+    return changes
+
 def handle_dlc(data, dlc_game_id, game_id, root, file):
     if dlc_game_id.startswith("0100"):
         dlc_info = data.get(dlc_game_id)
@@ -353,6 +370,50 @@ def organize(games=None):
         process_items(parentless_dlcs, config.PARENTLESS_DLCS_DIR, "dlc")
         
     remove_empty_folders(config.BASE_PATH)
+
+def preview_organize(games=None):
+    changes = []
+
+    if games is None:
+        games = Game.query.all()
+
+    for game in games:
+        # For the main game
+        game_dir = os.path.join(config.BASE_PATH, secure_filename(game.name))
+        if os.path.exists(os.path.join(game.location, game.filename)):
+            changes.append(f"CREATE DIR: {game_dir}")
+            changes.extend(preview_process_items([game], game_dir, "game"))
+
+        # For updates
+        updates = [update for update in game.updates if os.path.exists(os.path.join(update.location, update.filename))]
+        if updates:
+            update_dir = os.path.join(game_dir, "update")
+            changes.append(f"CREATE DIR: {update_dir}")
+            changes.extend(preview_process_items(updates, update_dir, "update", game))
+
+        # For DLCs
+        dlcs = [dlc for dlc in game.dlcs if os.path.exists(os.path.join(dlc.location, dlc.filename))]
+        if dlcs:
+            dlc_dir = os.path.join(game_dir, "dlc")
+            changes.append(f"CREATE DIR: {dlc_dir}")
+            changes.extend(preview_process_items(dlcs, dlc_dir, "dlc", game))
+
+    # Collect the IDs of all updates and DLCs that are associated with a main game
+    associated_update_ids = [update.id for game in games for update in game.updates]
+    associated_dlc_ids = [dlc.id for game in games for dlc in game.dlcs]
+
+    # Filter out the updates and DLCs that are already associated with a main game
+    all_updates = Update.query.all()
+    parentless_updates = [update for update in all_updates if update.id not in associated_update_ids]
+    if parentless_updates:
+        changes.extend(preview_process_items(parentless_updates, config.PARENTLESS_UPDATES_DIR, "update"))
+
+    all_dlcs = DLC.query.all()
+    parentless_dlcs = [dlc for dlc in all_dlcs if dlc.id not in associated_dlc_ids]
+    if parentless_dlcs:
+        changes.extend(preview_process_items(parentless_dlcs, config.PARENTLESS_DLCS_DIR, "dlc"))
+
+    return changes
 
 def delete_game_db(gameId=None):
     if gameId is None:
