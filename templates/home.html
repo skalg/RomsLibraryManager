@@ -47,7 +47,9 @@
             <label for="missingUpdates">Show missing updates</label>
         </div>
         <button type="button" onclick="refreshGames()">Refresh Games</button>
+        <div id="loadingMessage" style="display: none;">Refreshing games...</div>
         <button onclick="confirmOrganize()">Organize All Games</button>
+        <div id="organizeLoadingMessage" style="display: none;">Reorganizing games, Please Wait...</div>
         <form method="GET" action="{{ url_for('home') }}">
             <select name="sort" onchange="initializeGames()">
                 <option value="releaseDate" {% if request.args.get('sort', 'name') == 'releaseDate' %}selected{% endif %}>Release Date</option>
@@ -112,6 +114,9 @@
         });
 
         function refreshGames() {
+            // Show loading message
+            document.getElementById('loadingMessage').style.display = 'block';
+
             fetch("{{ url_for('refresh_data') }}", { method: "POST" })
                 .then(response => response.json())
                 .then(data => {
@@ -124,14 +129,23 @@
                         unprocessedList.appendChild(listItem);
                     });
 
+                    // Hide loading message
+                    document.getElementById('loadingMessage').style.display = 'none';
+
                     // Display the modal if there are any unprocessed files
                     if (data.unprocessed.length > 0) {
                         $('#unprocessedModal').modal('show');
                     } else {
                         window.location.href = "{{ url_for('home') }}";
                     }
+                })
+                .catch(error => {
+                    console.error('Error during fetch operation:', error);
+                    // Hide loading message in case of an error
+                    document.getElementById('loadingMessage').style.display = 'none';
                 });
         }
+
         
         function confirmOrganize() {
             fetch("/preview-organize")
@@ -154,7 +168,8 @@
         function applyChanges() {
             // Close the modal
             $('#organizeModal').modal('hide');
-
+            // Show loading message
+            document.getElementById('organizeLoadingMessage').style.display = 'block';
             fetch("/organize", { method: "POST" })
                 .then(() => {
                     // Refresh the page or handle the response as needed
