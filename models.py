@@ -39,6 +39,7 @@ class Update(db.Model):
 
 class DLC(db.Model):
     id = db.Column(db.String)
+    name = db.Column(db.String, nullable=False)
     game_id = db.Column(db.String, db.ForeignKey('game.id'))
     version = db.Column(db.Integer)
     filename = db.Column(db.String, primary_key=True)

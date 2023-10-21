@@ -47,29 +47,58 @@ def move_or_delete(src, dest):
     else:
         shutil.move(src, dest)
 
+def sanitize_filename(filename):
+    return re.sub(r'[^A-Za-z0-9_. -]', '', filename)
+
 def process_items(items, parent_dir, item_type, parent=None):
     os.makedirs(parent_dir, exist_ok=True)
     
-    # Process a set of items (games, updates, or DLCs)
     for item in items:
         full_file_path = os.path.join(item.location, item.filename)
-        dest_path = os.path.join(parent_dir, item.filename)
+        extension = item.filename.split('.')[-1]
+        name = getattr(item, "name", item.id)
+        
+        # Check if the filename is already in the desired format
+        pattern = re.compile(r'.*\[0100[0-9A-Fa-f]{12}\]\[v\d+\]\.' + extension)
+        if pattern.match(item.filename):
+            new_filename = item.filename
+        else:
+            # If the item is of type Update, fetch the main game's name
+            if item_type == "update" and hasattr(item, "game") and item.game:
+                name = item.game.name
+            new_filename = f"{sanitize_filename(name)}[{item.id}][v{item.version}].{extension}"
+
+        dest_path = os.path.join(parent_dir, new_filename)
         
         if os.path.exists(full_file_path):
-            if full_file_path != dest_path:  
+            if full_file_path != dest_path:
                 move_or_delete(full_file_path, dest_path)
             item.location = parent_dir
+            item.filename = new_filename  # Update the filename in the database
             db.session.commit()
         else:
-            db.session.delete(item) 
+            db.session.delete(item)
             db.session.commit()
 
 def preview_process_items(items, parent_dir, item_type, parent=None):
     changes = []
-
+    
     for item in items:
         full_file_path = os.path.join(item.location, item.filename)
-        dest_path = os.path.join(parent_dir, item.filename)
+        extension = item.filename.split('.')[-1]
+        name = getattr(item, "name", item.id)
+        
+        # Check if the filename is already in the desired format
+        pattern = re.compile(r'.*\[0100[0-9A-Fa-f]{12}\]\[v\d+\]\.' + extension)
+        if pattern.match(item.filename):
+            new_filename = item.filename
+        else:
+            # If the item is of type Update, fetch the main game's name
+            if item_type == "update" and hasattr(item, "game") and item.game:
+                name = item.game.name
+            new_filename = f"{sanitize_filename(name)}[{item.id}][v{item.version}].{extension}"
+
+        dest_path = os.path.join(parent_dir, new_filename)
         
         if os.path.exists(full_file_path):
             if full_file_path != dest_path:
@@ -81,44 +110,31 @@ def preview_process_items(items, parent_dir, item_type, parent=None):
 
     return changes
 
-def handle_dlc(data, dlc_game_id, game_id, root, file):
-    if dlc_game_id.startswith("0100"):
-        dlc_info = data.get(dlc_game_id)
-        prefix = dlc_game_id[:12]
-    else:
-        dlc_info = data.get(game_id)
-        prefix = game_id[:12]
-        
+def handle_dlc(data, game_id, root, file):
+    dlc_info = data.get(game_id)
+
     if dlc_info:
         existing_dlc_by_filename = DLC.query.filter_by(filename=file).first()  # Check if a DLC with the same filename already exists in the database
+
         if existing_dlc_by_filename:
             return
-        
-        existing_dlc = DLC.query.filter_by(id=dlc_info['id']).first()  # Do the check by ID
-        if not existing_dlc:
-            possible_game_ids = [key for key in data if key.startswith(prefix) and not key.endswith("800")]  # Look for the associated main game in the JSON data
-            associated_game_id = possible_game_ids[0] if possible_game_ids else None
-            dlc = DLC(
-                id=dlc_info['id'], 
-                game_id=associated_game_id, 
-                version=dlc_info['version'],
-                location=root,
-                filename=file
-            )
-            try:
-                db.session.add(dlc)
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()
-        else:
-            if existing_dlc.location != root or existing_dlc.filename != file:
-                os.remove(os.path.join(root, file))
-            else:
-                existing_dlc.version = dlc_info['version']
-                existing_dlc.location = root
-                existing_dlc.filename = file
-                db.session.commit()
 
+        possible_game_ids = [key for key in data if key.startswith(game_id[:12]) and not key.endswith("800")]  # Look for the associated main game in the JSON data
+        associated_game_id = possible_game_ids[0] if possible_game_ids else None
+        dlc = DLC(
+            id=dlc_info['id'],
+            name=dlc_info['name'],
+            game_id=associated_game_id, 
+            version=dlc_info['version'],
+            location=root,
+            filename=file
+        )
+        try:
+            db.session.add(dlc)
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+       
 def handle_update(data, game_id, filename, root, file):
     main_game_id = game_id[:-3] + "000"
     version = int(filename.split('[')[2].split(']')[0].replace('v', ''))  # Extract version from filename
@@ -300,27 +316,28 @@ def refresh_data_db():
         for file in files:
             filename, ext = os.path.splitext(file)
             if ext.lower() in [".nsp", ".nsz", ".xci", ".xcz"]:
-                bracket_contents = re.findall(r'\[.*?\]', filename)
-                # Basic check if there are at least two sets of brackets in the filename
-                if len(bracket_contents) >= 2:
-                    game_id = bracket_contents[0][1:-1]  # Extracting from the second set of brackets
-                    dlc_game_id = bracket_contents[1][1:-1]  # Extracting from the second set of brackets
+                pattern = r'.*\[(0100[0-9A-Fa-f]{12})\]\[v\d+\]'
+                match = re.match(pattern, filename)
+                game_id = match.group(1) if match else None
+                
+                if game_id:
                     is_maingame = game_id.endswith("000")
                     is_update = game_id.endswith("800")
-                    is_dlc = not (is_maingame or is_update) # Check if it's a DLC
+                    is_dlc = not (is_maingame or is_update)
+
                     if is_dlc:
-                        handle_dlc(data, dlc_game_id, game_id, root, file)
+                        handle_dlc(data, game_id, root, file)
                     elif is_update:
                         handle_update(data, game_id, filename, root, file)
                     elif is_maingame:
                         platforms, categories, publishers, languages = fetch_data()
                         handle_maingame(data, game_id, filename, root, file, platforms, publishers, categories, languages)
-                else:  # Handle the file if the filename format is not standard
-                    existing_game_by_filename = Game.query.filter_by(filename=file).first()  # Check if a game with this filename already exists in the database
+                else:  
+                    existing_game_by_filename = Game.query.filter_by(filename=file).first()  
                     if existing_game_by_filename:
                         continue
 
-                    game_name = find_name_in_json(filename, data)  # Try to find the game name in the JSON data using the function
+                    game_name = find_name_in_json(filename, data)  
                     if game_name:
                         handle_game_name_found(data, game_name, filename, file, root)
                     unprocessed_files.append(file)
@@ -389,21 +406,18 @@ def preview_organize(games=None):
         # For the main game
         game_dir = os.path.join(config.BASE_PATH, secure_filename(game.name))
         if os.path.exists(os.path.join(game.location, game.filename)):
-            changes.append(f"CREATE DIR: {game_dir}")
             changes.extend(preview_process_items([game], game_dir, "game"))
 
         # For updates
         updates = [update for update in game.updates if os.path.exists(os.path.join(update.location, update.filename))]
         if updates:
             update_dir = os.path.join(game_dir, "update")
-            changes.append(f"CREATE DIR: {update_dir}")
             changes.extend(preview_process_items(updates, update_dir, "update", game))
 
         # For DLCs
         dlcs = [dlc for dlc in game.dlcs if os.path.exists(os.path.join(dlc.location, dlc.filename))]
         if dlcs:
             dlc_dir = os.path.join(game_dir, "dlc")
-            changes.append(f"CREATE DIR: {dlc_dir}")
             changes.extend(preview_process_items(dlcs, dlc_dir, "dlc", game))
 
     # Collect the IDs of all updates and DLCs that are associated with a main game

@@ -107,6 +107,10 @@
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
     <script>
+        $('#unprocessedModal').on('hidden.bs.modal', function () {
+            window.location.href = "{{ url_for('home') }}";
+        });
+
         function refreshGames() {
             fetch("{{ url_for('refresh_data') }}", { method: "POST" })
                 .then(response => response.json())
@@ -123,9 +127,12 @@
                     // Display the modal if there are any unprocessed files
                     if (data.unprocessed.length > 0) {
                         $('#unprocessedModal').modal('show');
+                    } else {
+                        window.location.href = "{{ url_for('home') }}";
                     }
                 });
         }
+        
         function confirmOrganize() {
             fetch("/preview-organize")
                 .then(response => response.json())
