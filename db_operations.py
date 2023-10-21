@@ -130,6 +130,7 @@ def handle_dlc(data, game_id, root, file):
             filename=file
         )
         try:
+            print(f"Adding DLC - ID: {dlc.id}, Name: {dlc.name}, Version: {dlc.version}, Game ID: {dlc.game_id}")
             db.session.add(dlc)
             db.session.commit()
         except IntegrityError:
@@ -155,6 +156,7 @@ def handle_update(data, game_id, filename, root, file):
                 filename=file
             )
             try:
+                print(f"Adding Update - ID: {update.id}, Name: {update.name}, Version: {update.version}, Game ID: {update.game_id}")
                 db.session.add(update)
                 db.session.commit()
             except IntegrityError:
@@ -253,6 +255,7 @@ def handle_maingame(data, game_id, filename, root, file, platforms, publishers, 
             )
 
         try:
+            print(f"Adding Game - ID: {game.id}, Name: {game.name}, Version: {game.version}")
             db.session.add(game)
             db.session.commit()
         except Exception as e:

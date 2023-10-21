@@ -25,6 +25,7 @@ def download_cover(game):
     os.makedirs(os.path.dirname(image_filename), exist_ok=True)
 
     if not os.path.exists(image_filename):
+        print(f"Downloading cover image for {game['name']} (ID: {game['id']})")
         response = requests.get(image_url, stream=True)
 
         if response.status_code == 200:
