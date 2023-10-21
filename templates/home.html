@@ -50,6 +50,7 @@
         <div id="loadingMessage" style="display: none;">Refreshing games...</div>
         <button onclick="confirmOrganize()">Organize All Games</button>
         <div id="organizeLoadingMessage" style="display: none;">Reorganizing games, Please Wait...</div>
+        <button onclick="window.location.href='/download-titles'">Download Titles.json</button>
         <form method="GET" action="{{ url_for('home') }}">
             <select name="sort" onchange="initializeGames()">
                 <option value="releaseDate" {% if request.args.get('sort', 'name') == 'releaseDate' %}selected{% endif %}>Release Date</option>

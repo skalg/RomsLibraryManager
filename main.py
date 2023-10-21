@@ -22,6 +22,22 @@ def game_detail(game_id):
     print(game.dlcs)
     return render_template('game_detail.html', game=game)
 
+@app.route('/download-titles', methods=['GET'])
+def download_titles():
+    try:
+        response = requests.get(config.TINFOIL_URL)
+        response.raise_for_status()
+
+        file_path = 'titles.json'
+        with open(file_path, 'wb') as f:
+            f.write(response.content)
+
+        return redirect(url_for('home'))
+    except requests.HTTPError as http_err:
+        return f"HTTP error occurred: {http_err}", 500
+    except Exception as err:
+        return f"An error occurred: {err}", 500
+
 @app.route('/refresh', methods=['POST'])
 def refresh_data():
     result = refresh_data_db()
