@@ -1,6 +1,17 @@
 # Roms Library Manager 🎮
 
+## :construction: Under Heavy Development :construction:
 Welcome to the Roms Library Manager, the ultimate tool for organizing, tracking, and managing your ROM game files. Initially tailored for Nintendo Switch games, our vision extends to supporting multiple gaming platforms in the future.
+
+Please note that this project is currently under heavy development. It is in a very early stage and many parts are still experimental.
+
+### :warning: Disclaimer
+
+We are working hard to make this project as reliable as possible, but please be aware that:
+
+- The project might have incomplete features and bugs.
+- We do not guarantee stability or support for any specific feature at this stage.
+- We are not responsible for any problems or data loss that may occur as a result of using this project.
 
 ## Features 🔍
 
